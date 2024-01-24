@@ -5,6 +5,15 @@ channels:
 
 dependencies:
   - python=3.10
+  - notebook
+  - ipywidgets
   - numpy
   - matplotlib
+  - imageio
+  - moviepy
+  - scikit-learn
+  - wandb
   - pip
+  - pip:
+    - autoroot
+    - autorootcwd

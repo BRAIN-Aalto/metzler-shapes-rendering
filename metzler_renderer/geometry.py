@@ -1,5 +1,4 @@
 from enum import Enum
-from types import DynamicClassAttribute
 from typing import Optional
 
 import numpy as np
@@ -20,21 +19,16 @@ class Direction(Enum):
     """
     L = 0 # left
     D = 1 # down
-    B = 2 # backwards
+    B = 2 # backward
     R = 3 # right
     U = 4 # up
-    F = 5 # forwards
+    F = 5 # forward
 
-
-    @DynamicClassAttribute
-    def name(self):
-        name = super(Direction, self).name
-        return name.lower()
-        
 
     @classmethod
     def opposite(cls, of: str):
         """
+        Returns a direction opposite to the direction given in the argument <of>
         """
         opp_value = cls[of].value + 3
         opp_value = opp_value if opp_value < 6 else opp_value - 6
@@ -44,6 +38,7 @@ class Direction(Enum):
     @property
     def axis(self) -> Axis:
         """
+        0 - X axis, 1 - Y axis, 2 - Z axis
         """
         return Axis(self.value % 3)
     
@@ -51,6 +46,7 @@ class Direction(Enum):
     @property
     def orientation(self) -> int:
         """
+        Can be positive (+1) / negative (-1).
         """
         return 2 * (self.value // 3) - 1
 
@@ -58,9 +54,9 @@ class Direction(Enum):
 class Plane(Enum):
     """
     """
-    YZ = 0
-    XZ = 1
-    XY = 2
+    YZ = 0 # plane X = 0
+    XZ = 1 # plane Y = 0
+    XY = 2 # plane Z = 0
 
 
     @classmethod
@@ -111,11 +107,12 @@ class ShapeString:
     def reflect(self, over: Plane):
         """
         """
-        # 1 get an axis of the reflection
-        # 2 get shape indices that need to be reflected
-        # 3 create a reflected shape
+        # step 1: get an axis of the reflection
+        # step 2: get shape indices that need to be reflected
+        # step 3: create a reflected shape
+
         axis = Axis(over.value) # axis of reflection: 0 - X axis, 1 - Y axis, 2 - Z axis
-        # 
+    
         mask = list(
             map(
                 lambda d: Direction[d].axis == axis,
@@ -145,13 +142,13 @@ class ShapeString:
 
 class ShapeGenerator:
     """
-    Generator of shape's path/route describing the sequence of directions one needs to take to make the shape.
+    Generator of shape's path describing the sequence of directions one needs to take to produce the shape.
 
     Parameters
     ----------
     probability : {'uniform', 'random'}, default='uniform'
         Class of the probability distribution for all the possible directions to walk.
-        By default, all the directions are equally possible to be taken.
+        By default, all the directions are equally possible.
 
     random_state : int, default=None
         Controls the randomness of drawing the next direction in the walk. Initializes the new instance of
@@ -159,28 +156,21 @@ class ShapeGenerator:
     """
     def __init__(
         self,
-        random_state: int | None = None,
+        random_state: int | None,
         probability: str = "uniform",
     ) -> None:
-        # possible directions we can walk in 3D space:
-        # u - upward,
-        # r - rightward,
-        # f - forward,
-        # d - downward,
-        # l - leftward,
-        # b - backward
-
         # instantiate Random Generator for reproducibility sake
         self.rng = np.random.default_rng(seed=random_state)
-        self.directions = list('ldbruf')
 
         if probability == 'uniform':
             self.probabilities = np.repeat(
-                1 / len(Direction), len(Direction)
+                1 / len(Direction),
+                len(Direction)
             )
         elif probability == 'random':
             self.probabilities = self.rng.integers(
-                100, size=len(Direction)
+                100,
+                size=len(Direction)
             )
             self.probabilities /= np.sum(self.probabilities)
             assert np.sum(self.probabilities) == 1., \
@@ -211,7 +201,7 @@ class ShapeGenerator:
             The route is represented by a sequence of direction codes in the walking order. 
 
         overlap_likely: bool, default=False
-            *** todo ***
+            # TODO : ADD COMMENT
 
         loop_likely : bool, default=False
             Indicates the possibility for the closed loop to occure in the next d.
@@ -223,18 +213,16 @@ class ShapeGenerator:
             Updated probability distribution vector.
         """
         # get the index of the last direction
-        last_idx = self.directions.index(shape[-1])
-        # calculate index of the opposite direction to the last
-        last_opp_idx = last_idx + 3
-        last_opp_idx = last_opp_idx if last_opp_idx < 6 else last_opp_idx - 6
+        last_idx = Direction[shape[-1]].value
+        # calculate index of the opposite direction of the last one
+        last_opp_idx = Direction.opposite(of=shape[-1]).value
 
         to_be_masked = [last_idx, last_opp_idx]  # canceled directions
 
         if overlap_likely:
             # leave out the direction which leads to having both arms overlap by the next d
             # get the previous direction we walked before taking turn
-            overlap_idx = self.directions.index(shape[-2]) + 3
-            overlap_idx = overlap_idx if overlap_idx < 6 else overlap_idx - 6
+            overlap_idx = Direction.opposite(of=shape[-2]).value
 
             to_be_masked += [overlap_idx]
 
@@ -243,16 +231,16 @@ class ShapeGenerator:
             # to rule out the loop to pop up after the next d
 
             # count number of upward ds
-            ups = shape.count("u") + 1
+            ups = shape.count("U") + 1
             # count number of backward ds
-            backwards = shape.count("b") + 1
+            backwards = shape.count("B") + 1
             # count number of downward ds
-            downs = shape.count("d") + 1
+            downs = shape.count("D") + 1
             # count number of the rest of ds left
             forwards = 10 - (ups + downs + backwards - 3)
 
             if ((downs < ups) and (forwards >= backwards)) or ((downs == ups) and (forwards > backwards)):
-                to_be_masked += [self.directions.index("f")]
+                to_be_masked += [Direction["F"].value]
 
         # create a mask to keep track of prohibited and accessible directions to walk
         mask = np.ones_like(self.probabilities, dtype=bool)
@@ -262,7 +250,8 @@ class ShapeGenerator:
         self.probabilities[~mask] = 0.
         # recalculate the probability mass
         self.probabilities[mask] += (1 - np.sum(self.probabilities[mask])) / np.sum(mask)
-        assert np.sum(self.probabilities) == 1., "Error: probabilities don't sum up to 1"
+        assert np.sum(
+            self.probabilities) == 1., "Error: probabilities don't sum up to 1"
 
 
     def reset_probabilities(self) -> None:
@@ -275,7 +264,8 @@ class ShapeGenerator:
             Default probability distribution over directions.
         """
         self.probabilities = np.repeat(
-            1 / len(Direction), len(Direction)
+            1 / len(Direction),
+            len(Direction)
         )
 
 
@@ -288,10 +278,10 @@ class ShapeGenerator:
         d : str
             Direction code for the next d.
         """
-        return self.rng.choice(self.directions, size=1, replace=False, p=self.probabilities)[0]
+        return self.rng.choice(Direction, p=self.probabilities).name
 
 
-    def check_for_possible_loop(self, shape: str) -> bool:
+    def check_for_loop(self, shape: str) -> bool:
         """
         Scans shape's path for the possible loop at the next d.
         The loop is likely to occur if we have been walking in a plane defined by two orthogonal directions.
@@ -303,7 +293,6 @@ class ShapeGenerator:
         ----------
         shape : str
             Shape's path at this moment.
-            The path is represented by a sequence of direction codes in the walking order.
 
         Returns
         -------   
@@ -311,10 +300,10 @@ class ShapeGenerator:
             Boolean indication for the possibility of a loop at the next d.
         """
         d_start, d_end = shape[0], shape[-1]  # directions at t=1 and t=3
-        return abs(self.directions.index(d_start) - self.directions.index(d_end)) == 3
+        return Direction[d_start].axis == Direction[d_end].axis
 
 
-    def check_for_overalap(self, bend_point_1: int, bend_point_2: int) -> bool:
+    def check_for_overlap(self, bend_point_1: int, bend_point_2: int) -> bool:
         """
         """
         return (bend_point_2 - bend_point_1) == 1
@@ -322,30 +311,39 @@ class ShapeGenerator:
 
     def generate(self) -> ShapeString:
         """
-        Generates the shape's path by walking in 3D space and
+        Generates the shape's path/route by walking in 3D space and
         iteratevely updating the distribution over possible directions to walk at each d.
+
+        Parameters
+        ----------
+        n_arms : int, default=4
+            Number of arms the shape should have
+
+        d_size : int, default=2
+            How much we need to walk along the direction at each d.
 
 
         Returns
         -------
         path : ShapeString
-            The seqeunce of characters outlining the path one needs to walk to form the arm-like shape.
+            The seqeunce of characters outlining the path/route one needs to walk to form the arm-like shape.
+            The path length is calculated by the following rule: len = n_hops x d_size + 1
         """
         path = ""
         overlap_likely = False
         loop_likely = False
 
         # make 1st arm
-        to_bend_one = self.rng.integers(1, 6)
-        to_bend_two = self.rng.integers(to_bend_one + 2, 8)
-        to_bend_three = self.rng.integers(to_bend_two + 1, 9)
+        bend_1 = self.rng.integers(1, 6)
+        bend_2 = self.rng.integers(bend_1 + 2, 8)
+        bend_3 = self.rng.integers(bend_2 + 1, 9)
 
-        d = "u"  # always start with walking in the up direction
+        d = "U"  # always start with walking in the up direction
         for t in range(9):
-            if t == to_bend_one:
-                d = "b"
+            if t == bend_1:
+                d = "B"
 
-            if t == to_bend_two:
+            if t == bend_2:
                 # reset all the probabilities to default values
                 self.reset_probabilities()
                 # update the probability distribution of possible directions to go next
@@ -354,12 +352,11 @@ class ShapeGenerator:
                 self.update_probabilities(path, overlap_likely, loop_likely)
                 d = self.draw_direction()
 
-            if t == to_bend_three:
+            if t == bend_3:
                 # check 1
-                overlap_likely = self.check_for_overalap(
-                    to_bend_two, to_bend_three)
+                overlap_likely = self.check_for_overlap(bend_2, bend_3)
                 # check 2
-                loop_likely = self.check_for_possible_loop(path)
+                loop_likely = self.check_for_loop(path)
 
                 self.reset_probabilities()
                 self.update_probabilities(path, overlap_likely, loop_likely)
@@ -471,7 +468,7 @@ class MetzlerShape:
         Sequence of direction codes outlining the 3D shape
     """
 
-    def __init__(self, shape: ShapeString) -> None:
+    def __init__(self, shape: ShapeString | str) -> None:
         self.centers = [
             [0, 0, 0]  # always start off with the first cube located at the origin
         ]

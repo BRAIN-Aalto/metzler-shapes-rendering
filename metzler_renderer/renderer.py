@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib as mpl
 from matplotlib.patches import Patch, Polygon
 import matplotlib.pyplot as plt
+from moviepy.video.io.bindings import mplfig_to_npimage
 
 from metzler_renderer.geometry import MetzlerShape
 from metzler_renderer import utils
@@ -24,6 +25,7 @@ stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(formatter)
 
 logger.addHandler(stream_handler)
+
 
 class Camera:
     """
@@ -179,7 +181,7 @@ class Object3D:
     def __init__(
         self,
         shape: MetzlerShape,
-        facecolor: str | None,
+        facecolor: str | None, # color (e.g. "white", "blue", etc.) / "random-by-face" / "random-by-cube"
         edgecolor: str = "black",
         edgewidth: float = 1.5
     ) -> None:
@@ -192,7 +194,7 @@ class Object3D:
             "edgewidth": edgewidth,
         }
 
-        if facecolor == "random": # each face will have a different color
+        if facecolor == "random-by-face": # each face will have a different color
             # generate random RGB colors
             colors = np.random.randint(0, 256, size=(self.n_faces, 3))
             # normalize colors into the [0.0, 1.0] interval
@@ -208,11 +210,7 @@ class Object3D:
                 lambda color: mpl.colors.Normalize(vmin=0, vmax=255)(color).data.tolist(),
                 colors
             ))
-            colors = np.repeat(
-                colors,
-                6,
-                axis=0
-            ).tolist()
+            colors = np.repeat(colors, 6, axis=0).tolist()
 
         else: # each face has same color (in word or hex)
             colors = [
@@ -264,7 +262,7 @@ class VertexShader:
         assert projected.shape == (
             4, object.vertices.shape[1]), "Error: projection is done incorrectly!"
 
-        # keep the depth information in Z-buffer for visibility determination in further rendering
+        # keep the depth information in Z-buffer for visibility determination in later rendering
         self.zbuffer = [projected[-1, face] for face in object.faces]
       
         # normalize the coordinates by doing perspective divide
@@ -395,14 +393,14 @@ class Renderer:
         # generate collection of primitives to render the object
         pcollection = gshader.generate(self.vbuffer, vshader.zbuffer, object.attributes)
 
-        # draw generated primitives to make up the object
+        # draw generated primitives to make the object
         draw_primitives(pcollection)
 
 
     def save_figure_to_file(
         self,
         fname: Path | str = "figure",
-        verbose: bool = True
+        verbose: bool = False
     ) -> None:
         """
         Save the rendered figure in a file.
@@ -413,7 +411,7 @@ class Renderer:
             File name with the relative path to location where the figure needs to be saved
         """
         save_path = fname.absolute() if isinstance(fname, Path) \
-            else Path(fname).absolute()
+                    else Path(fname).absolute()
 
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -423,13 +421,26 @@ class Renderer:
             else False
         )
         
-        if verbose: logger.info("Image saved to {filepath}.{extension}".format(filepath=save_path, extension=mpl.rcParams["savefig.format"]))
+        if verbose: logger.info(
+            "Image saved to {filepath}.{extension}".format(filepath=save_path, extension=mpl.rcParams["savefig.format"])
+        )
 
 
-    def save_figure_to_numpy(self) -> np.array:
+    def save_figure_to_numpy(
+            self,
+            color_channel_to_beginning: bool = False
+    ) -> np.array:
         """
-        Save the rendered figure in a numpy array.
+        Save the rendered figure in a numpy array
+        using mplfig_to_npimage function from moviepy.
+
+        source: https://github.com/Zulko/moviepy/blob/bc8d1a831d2d1f61abfdf1779e8df95d523947a5/moviepy/video/io/bindings.py#L8
         """
-        self.figure.canvas.draw() # call it to fill up buffer
-        # grab the pixel buffer and dump it into a numpy array
-        return np.array(self.figure.canvas.renderer.buffer_rgba())[..., :-1]
+
+        figure_numpy = mplfig_to_npimage(self.figure) # converts a matplotlib figure to an RGB frame after updating the canvas
+
+        if color_channel_to_beginning:
+            return figure_numpy.transpose(2, 0, 1)
+        
+        return figure_numpy
+

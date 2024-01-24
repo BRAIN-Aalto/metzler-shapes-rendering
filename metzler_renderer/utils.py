@@ -94,6 +94,17 @@ def zrotate(m: np.array, angle_in_radians: float) -> np.array:
     return np.dot(zrotation(angle_in_radians), m)
 
 
+def zreflect(m: np.array) -> np.array:
+    """
+    """
+    R = np.array([
+        [1, 0,  0],
+        [0, 1,  0],
+        [0, 0, -1],
+    ])
+    return np.dot(R, m)
+
+
 def homogenize(vec3: np.array) -> np.array:
     """
     """
@@ -284,3 +295,31 @@ def sample_on_sphere(
     phies = np.degrees(2*math.pi*u)
 
     return thetas, phies
+
+
+def sample_interval_union(
+        space: list[tuple[float, float]],
+        size: int = 1,
+        rng: Optional[np.random.Generator] = None
+):
+    def foo(random_number: float) -> float:
+        for start, end in space:
+            if random_number <= (end - start):
+                return start + random_number
+
+            random_number = random_number - (end - start)
+
+        return end
+
+    vmin = 0
+    vmax = sum(end - start for start, end in space)
+
+    if rng:
+        sample = rng.uniform
+    else:
+        sample = np.random.uniform
+    
+    values = sample(low=vmin, high=vmax, size=size)
+    values = list(map(foo, values))
+
+    return np.array(values)
