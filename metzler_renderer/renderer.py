@@ -428,7 +428,7 @@ class Renderer:
 
     def save_figure_to_numpy(
             self,
-            color_channel_to_beginning: bool = False
+            color_channel_first: bool = False
     ) -> np.array:
         """
         Save the rendered figure in a numpy array
@@ -439,7 +439,7 @@ class Renderer:
 
         figure_numpy = mplfig_to_npimage(self.figure) # converts a matplotlib figure to an RGB frame after updating the canvas
 
-        if color_channel_to_beginning:
+        if color_channel_first:
             return figure_numpy.transpose(2, 0, 1)
         
         return figure_numpy

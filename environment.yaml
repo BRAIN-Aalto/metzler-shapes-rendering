@@ -4,7 +4,7 @@ channels:
   - conda-forge
 
 dependencies:
-  - python=3.10
+  - python>=3.10
   - notebook
   - ipywidgets
   - numpy
@@ -13,7 +13,7 @@ dependencies:
   - moviepy
   - scikit-learn
   - wandb
-  - pip
+  - pip>=23
   - pip:
     - autoroot
     - autorootcwd

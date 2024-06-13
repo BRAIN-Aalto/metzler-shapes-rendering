@@ -8,6 +8,7 @@ from metzler_renderer.utils import translate, homogenize
 
 class Axis(Enum):
     """
+    # TODO : ADD DOCSTRING
     """
     X = 0
     Y = 1
@@ -16,6 +17,7 @@ class Axis(Enum):
 
 class Direction(Enum):
     """
+    # TODO : ADD DOCSTRING
     """
     L = 0 # left
     D = 1 # down
@@ -53,6 +55,7 @@ class Direction(Enum):
 
 class Plane(Enum):
     """
+    # TODO : ADD DOCSTRING
     """
     YZ = 0 # plane X = 0
     XZ = 1 # plane Y = 0
@@ -62,6 +65,7 @@ class Plane(Enum):
     @classmethod
     def sample(cls, rng: Optional[np.random.Generator] = None):
         """
+        # TODO : ADD DOCSTRING
         """
         val = rng.integers(0, len(cls), size=1) if rng \
               else np.random.randint(0, len(cls), size=1)
@@ -87,12 +91,54 @@ class ShapeString:
 
     def encode(self) -> list[int]:
         """
+        # TODO : ADD DOCSTRING
         """
         return list(map(lambda d: Direction[d].value, self.shape))
     
 
-    def reverse(self):
+    def to_vector(self) -> np.ndarray:
         """
+        # TODO : ADD DOCSTRING
+        """
+        v = np.zeros((9, 4, 1))
+
+        encoded = list(
+            map(
+                lambda d: Direction[d],
+                self.shape
+            )
+        )
+        axes = list(map(lambda d: d.axis.value, encoded))
+        orientations = list(map(lambda d: d.orientation, encoded))
+
+        for cube, (ax, orient) in enumerate(zip(axes, orientations)): v[cube, ax] = orient * 1
+
+        v[:, -1, :] = 1.
+
+        return v
+    
+
+    def change_quadrant(self, quadrant: Quadrant) -> ShapeString:
+        """
+        # TODO : ADD DOCSTRING
+        """
+        v = self.to_vector()
+        v_rotated = np.round(yrotation(math.radians(quadrant.angle)) @ v)
+
+        indices_transformed = list(map(lambda v: np.nonzero(v[:3, -1])[0].item(), v_rotated))
+        signs_transformed = list(map(lambda tpl: int(tpl[0][tpl[1]].item() > 0), zip(v_rotated, indices_transformed)))
+
+        shape_encoded_in_new_quadrant = list(map(lambda tpl: tpl[0] + 3 if tpl[1] > 0 else tpl[0], zip(indices_transformed, signs_transformed)))
+
+        shape_new = "".join(list(map(lambda d: Direction(d).name, shape_encoded_in_new_quadrant)))
+        
+        return ShapeString(shape_new)
+    
+
+
+    def reverse(self) -> ShapeString:
+        """
+        # TODO : ADD DOCSTRING
         """
         return ShapeString(
             "".join(
@@ -104,18 +150,19 @@ class ShapeString:
         )
     
 
-    def reflect(self, over: Plane):
+    def reflect(self, over: Plane) -> ShapeString:
         """
+        # TODO : ADD DOCSTRING
         """
         # step 1: get an axis of the reflection
         # step 2: get shape indices that need to be reflected
         # step 3: create a reflected shape
 
-        axis = Axis(over.value) # axis of reflection: 0 - X axis, 1 - Y axis, 2 - Z axis
+        axis_of_reflection = Axis(over.value) # axis of reflection: 0 - X axis, 1 - Y axis, 2 - Z axis
     
         mask = list(
             map(
-                lambda d: Direction[d].axis == axis,
+                lambda d: Direction[d].axis == axis_of_reflection,
                 self.shape
             )
         )
@@ -130,6 +177,7 @@ class ShapeString:
 
     def count_orientations(self) -> int:
         """
+        # TODO : ADD DOCSTRING
         """
         shape_orientations = list(
             map(
@@ -138,6 +186,26 @@ class ShapeString:
             )
         )
         return len(np.unique(shape_orientations))
+    
+
+    @property
+    def axis_of_elongation(self) -> Axis:
+        """"
+        # TODO : ADD DOCSTRING
+        """"
+        breakdown = sorted([(k, len(list(g))) for k, g in it.groupby(str(self))], key=lambda item: item[1])
+
+        if breakdown[-1][-1] < 5:
+            return None
+        
+        if breakdown[-1][0] in ("u", "d"):
+            return "Y"
+        
+        if breakdown[-1][0] in ("r", "l"):
+            return "X"
+        
+        if breakdown[-1][0] in ("b", "f"):
+            return "Z"
     
 
 class ShapeGenerator:
