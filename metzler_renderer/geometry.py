@@ -1,9 +1,10 @@
 from enum import Enum
 from typing import Optional
+import math
 
 import numpy as np
 
-from metzler_renderer.utils import translate, homogenize
+from metzler_renderer.utils import translate, homogenize, yrotation
 
 
 class Axis(Enum):
@@ -71,6 +72,27 @@ class Plane(Enum):
               else np.random.randint(0, len(cls), size=1)
         
         return cls(val)
+    
+
+class Quadrant(Enum):
+    """
+    """
+    I = 0
+    II = 1
+    III = 2
+    IV = 3
+
+    @property
+    def angle(self):
+        return -90 * self.value
+    
+
+    @property
+    def adjacent(self):
+        right = int((self.value + 1) % 4)
+        left = int((self.value - 1) % 4)
+
+        return (Quadrant(right), Quadrant(left))
 
 
 
@@ -118,7 +140,7 @@ class ShapeString:
         return v
     
 
-    def change_quadrant(self, quadrant: Quadrant) -> ShapeString:
+    def change_quadrant(self, quadrant: Quadrant):
         """
         # TODO : ADD DOCSTRING
         """
@@ -136,7 +158,7 @@ class ShapeString:
     
 
 
-    def reverse(self) -> ShapeString:
+    def reverse(self):
         """
         # TODO : ADD DOCSTRING
         """
@@ -150,7 +172,7 @@ class ShapeString:
         )
     
 
-    def reflect(self, over: Plane) -> ShapeString:
+    def reflect(self, over: Plane):
         """
         # TODO : ADD DOCSTRING
         """
@@ -190,9 +212,9 @@ class ShapeString:
 
     @property
     def axis_of_elongation(self) -> Axis:
-        """"
+        """
         # TODO : ADD DOCSTRING
-        """"
+        """
         breakdown = sorted([(k, len(list(g))) for k, g in it.groupby(str(self))], key=lambda item: item[1])
 
         if breakdown[-1][-1] < 5:
